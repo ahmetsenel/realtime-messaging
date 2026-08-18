@@ -18,6 +18,9 @@ import com.ahmetsenel.chatservice.socket.WebSocketPublisher;
 import com.ahmetsenel.commonlib.exception.BusinessException;
 import com.ahmetsenel.commonlib.exception.MessageType;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +29,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class GroupServiceImpl implements GroupService {
 
@@ -53,6 +57,7 @@ public class GroupServiceImpl implements GroupService {
         return toSummaryResponse(savedGroup, creatorId);
     }
 
+    @CacheEvict(value = "groupMembership", key = "#groupId + ':' + #userId")
     public GroupMemberResponse addGroupMember(Long groupId, Long userId, String username) {
         if (groupMemberRepository.existsByGroupIdAndUserId(groupId,userId)) {
             throw new BusinessException(MessageType.USER_ALREADY_IN_GROUP);
@@ -82,14 +87,10 @@ public class GroupServiceImpl implements GroupService {
         return GroupMemberResponse.builder().userId(savedMember.getUserId()).username(savedMember.getUsername()).joinedAt(savedMember.getJoinedAt()).build();
     }
 
+    @Cacheable(value = "groupMembership", key = "#groupId + ':' + #userId")
     public boolean isMember(Long groupId, Long userId) {
+        log.info("Checking membership in the database... Group: {}, User: {}", groupId, userId);
         return groupMemberRepository.existsByGroupIdAndUserId(groupId, userId);
-    }
-
-    public void requireMember(Long groupId, Long userId) {
-        if (!isMember(groupId, userId)) {
-            throw new BusinessException(MessageType.USER_NOT_IN_GROUP);
-        }
     }
 
     public Group getGroupById(Long groupId) {

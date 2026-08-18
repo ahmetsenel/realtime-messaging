@@ -14,8 +14,6 @@ public interface GroupService {
 
     boolean isMember(Long groupId, Long userId);
 
-    void requireMember(Long groupId, Long userId);
-
     Group getGroupById(Long groupId);
 
     List<GroupSummaryResponse> getGroupSummariesForUser(Long userId);

@@ -14,6 +14,14 @@ services:
     networks:
       - messaging-network
 
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - messaging-network
+
   eureka-server:
     image: ahmetsnl/realtime-messaging-eureka-server:latest
     build:
@@ -46,10 +54,13 @@ services:
     environment:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/postgres
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
       TZ: Europe/Istanbul
     depends_on:
       - eureka-server
       - postgres
+      - redis
     networks:
       - messaging-network
 

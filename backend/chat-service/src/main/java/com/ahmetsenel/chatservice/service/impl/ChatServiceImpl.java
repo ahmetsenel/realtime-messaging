@@ -165,7 +165,11 @@ public class ChatServiceImpl implements ChatService {
         if (request.getGroupId() == null) {
             throw new BusinessException(MessageType.MISSING_GROUP_ID);
         }
-        groupService.requireMember(request.getGroupId(), senderId);
+
+        if (!groupService.isMember(request.getGroupId(), senderId)) {
+            throw new BusinessException(MessageType.USER_NOT_IN_GROUP);
+        }
+
         Group group = groupService.getGroupById(request.getGroupId());
         builder.group(group);
 

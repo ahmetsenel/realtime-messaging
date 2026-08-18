@@ -13,10 +13,16 @@ spring:
   jpa:
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
+
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+
 
 eureka:
   client:

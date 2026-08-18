@@ -7,14 +7,12 @@ import com.ahmetsenel.chatservice.service.UserPresenceService;
 import com.ahmetsenel.chatservice.socket.WebSocketPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.messaging.simp.user.SimpUser;
 import org.springframework.messaging.simp.user.SimpUserRegistry;
 import org.springframework.stereotype.Service;
 import java.time.Instant;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -22,20 +20,27 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class UserPresenceServiceImpl implements UserPresenceService {
 
-    private final SimpUserRegistry simpUserRegistry;
     private final MessageRepository messageRepository;
     private final UserStatusRepository userStatusRepository;
     private final WebSocketPublisher webSocketPublisher;
+    private final StringRedisTemplate redisTemplate;
+
+    private static final String ONLINE_USERS_KEY = "users:online";
 
     public void handleUserOnline(Long userId, String username) {
         log.info("User online: {}", username);
+
+        redisTemplate.opsForSet().add(ONLINE_USERS_KEY, String.valueOf(userId));
+
         webSocketPublisher.publishUserOnline(userId);
     }
 
     public void handleUserOffline(Long userId, String username) {
         log.info("User offline: {}", username);
-        Instant now = Instant.now();
 
+        redisTemplate.opsForSet().remove(ONLINE_USERS_KEY, String.valueOf(userId));
+
+        Instant now = Instant.now();
         UserStatus userStatus = userStatusRepository.findById(userId)
                 .orElse(UserStatus.builder()
                                 .userId(userId)
@@ -49,7 +54,7 @@ public class UserPresenceServiceImpl implements UserPresenceService {
     }
 
     public boolean isUserOnline(Long userId) {
-        return simpUserRegistry.getUser(String.valueOf(userId)) != null;
+        return Boolean.TRUE.equals(redisTemplate.opsForSet().isMember(ONLINE_USERS_KEY, String.valueOf(userId)));
     }
 
     public Map<Long, String> getUserStatuses(Long userId) {
@@ -71,16 +76,14 @@ public class UserPresenceServiceImpl implements UserPresenceService {
             return List.of();
         }
 
-        return simpUserRegistry.getUsers().stream()
-                .map(SimpUser::getName)
-                .filter(name -> {
-                    try {
-                        return peerIds.contains(Long.parseLong(name));
-                    } catch (NumberFormatException e) {
-                        return false;
-                    }
-                })
-                .toList();
+        List<String> onlinePeers = new ArrayList<>();
+
+        for (Long peerId : peerIds) {
+            if (isUserOnline(peerId)) {
+                onlinePeers.add(String.valueOf(peerId));
+            }
+        }
+        return onlinePeers;
     }
 
     private Set<Long> getDirectMessagingPeerIds(Long userId) {
